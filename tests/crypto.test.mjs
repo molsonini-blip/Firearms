@@ -55,3 +55,18 @@ test('type and caliber persist encrypted while older records remain compatible',
   specs.records[0].type='Shotgun'; specs.records[0].caliber=123;
   await assert.rejects(seal(specs,key,salt));
 });
+test('wishlist, websites, targets and saved checks encrypt and validate', async () => {
+  const salt=crypto.getRandomValues(new Uint8Array(16)),key=await derive(pass,salt);
+  const full=structuredClone(data); full.records[0].ammo='124 gr JHP — verified';
+  full.wishlist=[{id:'w1',name:'Synthetic wish',manufacturer:'Example',model:'X1',type:'Pistol',caliber:'9mm Luger',targetPrice:'499',urls:['https://shop.example/x1'],notes:''}];
+  full.sources=[{id:'s1',name:'Synthetic shop',url:'https://shop.example/9mm',location:'Online',kind:'ammo'}];
+  full.ammoTargets={'9mm':0.25}; full.searchArea='Synthetic City, TX';
+  full.lastCheck={at:'2026-11-21T00:00:00Z',pages:[{url:'https://shop.example/9mm',ok:true,note:'',count:1}],offers:[{title:'Synthetic 9mm 50rd',price:12,url:'https://shop.example/a',cpr:0.24,good:true}]};
+  const vault=await seal(full,key,salt);
+  assert.equal(JSON.stringify(vault).includes('Synthetic wish'),false);
+  assert.deepEqual((await open(vault,pass)).data,full);
+  for (const mutate of [d=>d.wishlist[0].urls=['http://plain.example'], d=>d.sources[0].kind='other', d=>d.ammoTargets['9mm']=-1,
+                        d=>d.wishlist.push({...d.wishlist[0]}), d=>d.records[0].ammo=5]) {
+    const bad=structuredClone(full); mutate(bad); await assert.rejects(seal(bad,key,salt));
+  }
+});

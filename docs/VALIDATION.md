@@ -74,3 +74,20 @@ Five Node cryptography tests pass. Added coverage verifies encrypted type/calibe
 round trips, compatibility with existing records lacking these fields, and rejection
 of unsupported types or invalid caliber data. JavaScript syntax and diff checks
 passed. No backend or network configuration changed in this update.
+
+## Ammo, wishlist and price-check update
+
+- Node: 8 tests (crypto + caliber catalog). New coverage: every catalog label maps
+  to its own caliber, retail-title caliber/round-count parsing, encrypted
+  wishlist/websites/targets/saved checks, and rejection of invalid sections.
+- Python: 12 tests. New coverage: JSON-LD offer extraction (ItemList, Offer,
+  AggregateOffer, relative URLs, malformed blocks), minimal-payload validation,
+  per-page error reporting, gateway payload, and that the endpoint requires local
+  requests and writes nothing to disk.
+- Browser (headless Chrome, synthetic vault on port 8766, mock gateway on loopback):
+  added firearms with and without caliber, ammo suggestions and *Add*, a wishlist
+  item, a $/round target, a search area, and a website. A price check flagged
+  the expected two good prices, and they persisted after lock/unlock. The gateway
+  received only calibers, wishlist make/model/caliber and the area. The vault
+  file held no plaintext. Live retailer pages were not reachable from the test
+  sandbox, so real-site JSON-LD coverage remains for the owner to confirm.

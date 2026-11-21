@@ -37,14 +37,17 @@ class PinnedHTTPS(HTTPSConnection):
             raise
 
 
-def fetch_public(url):
+IMAGE_KINDS = ('image/jpeg', 'image/png', 'image/webp', 'text/html')
+
+
+def fetch_public(url, kinds=IMAGE_KINDS, html_limit=1024 * 1024, user_agent='PrivateInventory-PhotoImport/1.0'):
     for _ in range(4):
         host, address, path, query = public_target(url)
         connection = PinnedHTTPS(host, address)
         try:
             connection.request('GET', path + ('?' + query if query else ''), headers={
-                'User-Agent': 'PrivateInventory-PhotoImport/1.0',
-                'Accept': 'image/jpeg,image/png,image/webp,text/html;q=0.5',
+                'User-Agent': user_agent,
+                'Accept': 'image/jpeg,image/png,image/webp,text/html;q=0.5' if kinds == IMAGE_KINDS else 'text/html',
                 'Accept-Encoding': 'identity'})
             response = connection.getresponse()
             if response.status in (301, 302, 303, 307, 308):
@@ -56,9 +59,10 @@ def fetch_public(url):
             if response.status != 200:
                 raise ValueError('The website did not provide a photo. Download it yourself and use Upload photo.')
             kind = response.getheader('Content-Type', '').split(';')[0].strip().lower()
-            if kind not in ('image/jpeg', 'image/png', 'image/webp', 'text/html'):
-                raise ValueError('The address must provide a JPG, PNG, WebP image or a product page.')
-            limit = 1024 * 1024 if kind == 'text/html' else MAX_IMAGE
+            if kind not in kinds:
+                raise ValueError('The address must provide a JPG, PNG, WebP image or a product page.'
+                                 if kinds == IMAGE_KINDS else 'The address did not return a web page.')
+            limit = html_limit if kind == 'text/html' else MAX_IMAGE
             data = response.read(limit + 1)
             if kind == 'text/html':
                 data = data[:limit]  # Preview metadata is normally in the document head.

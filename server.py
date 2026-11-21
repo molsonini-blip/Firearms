@@ -12,11 +12,13 @@ import tempfile
 import threading
 from urllib.parse import urlsplit
 from photo_import import import_photo
+from prices import price_check
 
 ROOT = Path(__file__).resolve().parent
 MAX_SIZE = 48 * 1024 * 1024
 FILES = {'/': ('index.html', 'text/html; charset=utf-8'), '/app.mjs': ('app.mjs', 'text/javascript'),
-         '/crypto.mjs': ('crypto.mjs', 'text/javascript'), '/style.css': ('style.css', 'text/css')}
+         '/crypto.mjs': ('crypto.mjs', 'text/javascript'),
+         '/ammo.mjs': ('ammo.mjs', 'text/javascript'), '/style.css': ('style.css', 'text/css')}
 
 
 def valid_envelope(value):
@@ -35,8 +37,9 @@ def valid_envelope(value):
 class VaultServer(ThreadingHTTPServer):
     daemon_threads = True
 
-    def __init__(self, address, data_dir, tailnet_origin=None, tailnet_user=None):
+    def __init__(self, address, data_dir, tailnet_origin=None, tailnet_user=None, source_gateway=None):
         self.data_dir = data_dir
+        self.source_gateway = source_gateway
         self.tailnet_origin = tailnet_origin
         self.tailnet_user = tailnet_user
         self.write_lock = threading.Lock()
@@ -88,6 +91,8 @@ class Handler(BaseHTTPRequestHandler):
                     return self.reply(404)
                 data = self.vault.read_bytes()
             return self.reply(200, data, etag='"' + hashlib.sha256(data).hexdigest() + '"')
+        if self.path == '/api/price-config':
+            return self.reply(200, json.dumps({'gateway': bool(self.server.source_gateway)}).encode())
         if self.path not in FILES:
             return self.reply(404)
         filename, kind = FILES[self.path]
@@ -133,6 +138,8 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         if not self.allowed() or self.headers.get('X-Vault-Request') != '1':
             return self.reply(403)
+        if self.path == '/api/price-check':
+            return self.price_check()
         if self.path != '/api/photo-import':
             return self.reply(404)
         length = self.headers.get('Content-Length', '')
@@ -152,6 +159,22 @@ class Handler(BaseHTTPRequestHandler):
             self.reply(400, json.dumps({'error': str(error)}).encode())
         except Exception:
             self.reply(502, json.dumps({'error': 'The website could not be reached. Try a direct image address or upload a photo.'}).encode())
+
+
+    def price_check(self):
+        length = self.headers.get('Content-Length', '')
+        if self.headers.get('Content-Type') != 'application/json' or self.headers.get('Transfer-Encoding'):
+            return self.reply(415)
+        if not re.fullmatch(r'[0-9]{1,6}', length) or not 0 < int(length) <= 131072:
+            return self.reply(413)
+        self.connection.settimeout(15)
+        try:
+            payload = json.loads(self.rfile.read(int(length)))
+            self.connection.settimeout(None)
+            result = price_check(payload, self.server.source_gateway)
+            self.reply(200, json.dumps(result).encode())
+        except ValueError as error:
+            self.reply(400, json.dumps({'error': str(error)}).encode())
 
 
 class HTTPSRedirect(BaseHTTPRequestHandler):
@@ -174,19 +197,23 @@ if __name__ == '__main__':
     parser.add_argument('--data-dir', type=Path, default=ROOT / 'data', help='Encrypted vault directory; override for isolated testing.')
     parser.add_argument('--tailnet-origin', help='Exact HTTPS origin of the trusted Tailscale Serve endpoint.')
     parser.add_argument('--tailnet-user', help='Only this Tailscale login may use the remote endpoint.')
+    parser.add_argument('--source-gateway', default=os.environ.get('SOURCE_GATEWAY_URL'),
+                        help='Optional Source Gateway search endpoint (https://, or http:// on loopback). See docs/SOURCE_GATEWAY.md.')
     parser.add_argument('--redirect-port', type=int, help='Optional loopback HTTP-to-HTTPS redirect listener for the app identity.')
     args = parser.parse_args()
     if bool(args.tailnet_origin) != bool(args.tailnet_user):
         parser.error('Supply both --tailnet-origin and --tailnet-user, or neither.')
     if args.tailnet_origin and not re.fullmatch(r'https://[a-z0-9-]+\.[a-z0-9-]+\.ts\.net(?::[0-9]+)?', args.tailnet_origin):
         parser.error('--tailnet-origin must be an exact HTTPS Tailscale hostname without a path.')
+    if args.source_gateway and not re.fullmatch(r'(https://[^\s/]+|http://(127\.0\.0\.1|localhost)(:[0-9]+)?)(/\S*)?', args.source_gateway):
+        parser.error('--source-gateway must be an https:// URL or an http:// loopback URL.')
     if args.redirect_port and not args.tailnet_origin:
         parser.error('--redirect-port requires --tailnet-origin.')
     if args.redirect_port:
         redirect=ThreadingHTTPServer(('127.0.0.1',args.redirect_port),HTTPSRedirect)
         redirect.target_origin=args.tailnet_origin
         threading.Thread(target=redirect.serve_forever,daemon=True).start()
-    with VaultServer(('127.0.0.1', args.port), args.data_dir, args.tailnet_origin, args.tailnet_user) as server:
+    with VaultServer(('127.0.0.1', args.port), args.data_dir, args.tailnet_origin, args.tailnet_user, args.source_gateway) as server:
         print(f'Private inventory: http://127.0.0.1:{server.server_port}', flush=True)
         print('Keep this terminal running. Ctrl+C stops the app.', flush=True)
         try:

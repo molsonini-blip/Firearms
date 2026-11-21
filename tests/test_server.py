@@ -67,6 +67,18 @@ class ServerTests(unittest.TestCase):
             self.assertEqual(json.loads(body)['data'],base64.b64encode(b'photo').decode())
             self.assertFalse(self.data.exists())
 
+    def test_price_check_endpoint_requires_local_request_and_minimal_payload(self):
+        headers={'Content-Type':'application/json','X-Vault-Request':'1'}
+        self.assertEqual(self.request('POST','/api/price-check','{}',{'Content-Type':'application/json'})[0],403)
+        self.assertEqual(self.request('POST','/api/price-check',json.dumps({'pages':[],'serial':'x'}),headers)[0],400)
+        with patch('server.price_check',return_value={'pages':[],'gateway':None}) as check:
+            self.assertEqual(self.request('POST','/api/price-check',json.dumps({'pages':['https://shop.example']}),headers)[0],200)
+            check.assert_called_once()
+        status,_,body=self.request('GET','/api/price-config')
+        self.assertEqual((status,json.loads(body)),(200,{'gateway':False}))
+        self.assertEqual(self.request('GET','/ammo.mjs')[0],200)
+        self.assertFalse(self.data.exists())
+
     def test_tailnet_requires_exact_origin_and_owner_identity(self):
         remote='inventory.tailtest.ts.net'
         headers={'Host':remote,'Origin':'https://'+remote,'Tailscale-User-Login':'owner@example.test'}

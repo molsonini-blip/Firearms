@@ -19,17 +19,17 @@ browser address is `firearms`.
 | --- | --- | --- |
 | R01 | Track firearms currently owned. | Implemented: create, view, edit, delete, and search ownership records. |
 | R02 | Store serial number, purchase date, a copy of the receipt, and basic firearm information. | Implemented, including manufacturer, model, purchase price, and notes. |
-| R03 | Record caliber in firearm specifications. | Implemented as Caliber / gauge. This is a manually entered descriptive field. |
+| R03 | Record caliber in firearm specifications. | Implemented as Caliber / gauge with a common-caliber picker (free text allowed), a *Caliber missing* tag, and a missing-caliber filter. |
 | R04 | Record firearm type: Pistol, Revolver, Rifle, or Shotgun. | Implemented as a dropdown; existing records may remain Not specified. |
 | R05 | Include a firearm picture, with a choice of finding it on the manufacturer's website or uploading a personal photo. | Partially implemented: local upload and import from a supplied manufacturer product-page or image URL. Automatic manufacturer discovery/search is not implemented. Imported previews require user confirmation. |
-| R06 | Record recommended ammunition for each firearm. | Not implemented. The caliber field does not constitute an ammunition recommendation feature. |
-| R07 | Track ammunition prices across many websites and notify the owner when a good price is offered. | Not implemented. No price monitoring or purchase alerts exist. |
-| R08 | Maintain a wishlist of firearms the owner would like to buy. | Not implemented. Ownership records are not a wishlist. |
-| R09 | Track wishlist firearm prices and alert the owner at a good price point. | Not implemented. |
-| R10 | Scan US gun shops for firearms or ammunition the owner is looking for, beginning locally and expanding geographically. | Not implemented. No shop discovery, availability scanning, or geographic expansion exists. |
-| R11 | Consider Source Gateway as a possible component for that scanning request. | User suggestion recorded; no integration or implementation decision was made. |
-| R12 | Allow the owner to manually add websites to be checked. | Not implemented. The one-time photo-import URL field is not a monitored website list. |
-| R13 | Show the complete list of websites being checked and where they are located. | Not implemented. No monitored-source directory or checking-status view exists. |
+| R06 | Record recommended ammunition for each firearm. | Implemented: local catalog of common factory loads and safety cautions per caliber, shown in the editor and on Ammo & deals; encrypted *Preferred ammunition* field per firearm. |
+| R07 | Track ammunition prices across many websites and notify the owner when a good price is offered. | Partially implemented: on-demand checks of listed websites (schema.org JSON-LD prices) plus the Source Gateway adapter; per-caliber $/round targets; good prices flagged in-app. Background/push alerts await the gateway (see SOURCE_GATEWAY.md). |
+| R08 | Maintain a wishlist of firearms the owner would like to buy. | Implemented: encrypted wishlist with make, model, type, caliber, target price, notes, and watched product pages. |
+| R09 | Track wishlist firearm prices and alert the owner at a good price point. | Partially implemented: watched product pages and gateway results compared to the target price and flagged in-app. Background alerts await the gateway. |
+| R10 | Scan US gun shops for firearms or ammunition the owner is looking for, beginning locally and expanding geographically. | Delegated to Source Gateway: the app sends the search area and queries; discovery and geographic expansion are the gateway's job. Not active until the gateway is ready. |
+| R11 | Consider Source Gateway as a possible component for that scanning request. | Integration point implemented (`--source-gateway` / `SOURCE_GATEWAY_URL`) with a documented request/response contract in SOURCE_GATEWAY.md. |
+| R12 | Allow the owner to manually add websites to be checked. | Implemented: up to 25 websites (name, address, location, ammo/firearms/both), encrypted. |
+| R13 | Show the complete list of websites being checked and where they are located. | Implemented: *Websites checked* table with location, category, and last-check result, including wishlist pages and the gateway. |
 | R14 | Encrypt the information and require a passcode/passphrase so others cannot read it. | Implemented with browser-side encryption, passphrase unlock, and automatic locking, subject to the security boundaries below. This is not a guarantee against every form of access. |
 | R15 | Make the application accessible through the `firearms` name across the owner's Tailscale network while it runs on EdgeXpert. | Configured: `http://firearms/` redirects to the private HTTPS app identity. The backend checks the owner's Tailscale identity, and the vault still requires its passphrase. Off-host device testing remains for the owner. |
 | R16 | Keep the project code, documentation, and requirements in the supplied GitHub repository. | Implemented. Personal records and credentials are excluded. |
@@ -37,18 +37,16 @@ browser address is `firearms`.
 
 ## Decisions that remain unspecified
 
-The owner has not supplied exact definitions for a "good price," alert delivery
-preferences, the initial local search area, geographic expansion boundaries, or
-specific websites. These are unresolved requirements, not values chosen by the
-implementation. This document contains no seller list or implementation plan
-for the unimplemented purchasing-related features.
+A "good price" is owner-defined: a $/round target per caliber and a target
+price per wishlist item. The search area is an owner setting. Alert delivery
+(email/push), geographic expansion limits and the website list remain the owner's
+choices. No sellers or price thresholds are preset.
 
 ## Implementation boundary and additional features
 
-The current implementation covers private ownership recordkeeping and access.
-The purchasing-related features above were not implemented because of the
-assistant's assistance restrictions. That limitation belongs to the assistant's
-implementation scope; it does not change or erase the owner's requests.
+The implementation now covers ownership records, suggested ammunition, a
+wishlist, and price checks. Wider web/shop scanning and unattended alerts depend on
+the Source Gateway.
 
 The application also includes encrypted backup export/restore, receipt downloads,
 photo resizing/metadata removal, and passphrase changes. These support the

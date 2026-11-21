@@ -185,5 +185,21 @@ python3 server.py --port 8766 --data-dir /tmp/private-inventory-test
 See [validation](docs/VALIDATION.md) for observed browser coverage and remaining
 limits. See [workflow](docs/WORKFLOW.md) for the LiteLLM/Ollama pilot used here.
 
-Scope is ownership recordkeeping. The app does not include firearm/ammunition
-sourcing, price comparison, purchase alerts, or purchasing recommendations.
+## Ammo, wishlist and price checks
+
+- **Caliber / gauge** has a picker of common calibers (free text still works).
+  Firearms without a caliber show a *Caliber missing* tag. Use the
+  *Missing caliber only* filter to fill them in.
+- **Suggested ammunition** appears in the editor for recognized calibers: common
+  factory-load categories plus safety cautions (+P ratings, .223/5.56 chambers,
+  .300 BLK in 5.56 rifles, shotgun shell length). Choose **Add** to copy a load into
+  the encrypted *Preferred ammunition* field. Barrel markings and the owner's
+  manual always take precedence. The catalog is local (`app/ammo.mjs`).
+- **Wishlist** stores firearms you want, a target price, and up to 10 product
+  pages to watch, all encrypted.
+- **Ammo & deals** lists each caliber you own or want with suggested loads and a
+  *good price ≤ $/round* target, the websites being checked (name, address,
+  location, last result), and price-check results with good prices flagged.
+  Checks send only page addresses, and with the Source Gateway, calibers,
+  wishlist make/model and your search area. See
+  [Source Gateway integration](docs/SOURCE_GATEWAY.md).
