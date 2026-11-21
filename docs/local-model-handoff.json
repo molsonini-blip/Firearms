@@ -1,0 +1,38 @@
+{
+  "advisory_only": true,
+  "independently_verified": false,
+  "project": "Firearms \u2014 private local inventory",
+  "task": "handoff",
+  "synthetic": false,
+  "created_at": "2026-11-21T15:28:40.155913+00:00",
+  "snapshot_captured_at": "2026-11-21T15:28:20.954502+00:00",
+  "revision": "requirements-v1-not-an-implementation-commit",
+  "snapshot_sha256": "eda0aa429a958f925ed4088ac003a6567ec0be799cca4a07b55e0f40f165550b",
+  "model": "pm-local",
+  "latency_seconds": 15.649,
+  "usage": {
+    "completion_tokens": 312,
+    "prompt_tokens": 440,
+    "total_tokens": 752
+  },
+  "finish_reason": "stop",
+  "draft": "**Project Handoff Draft**\n\n**Project:** Firearms \u2014 Private Local Inventory\n\n**Scope:**\n\n* Build a local web inventory for owned firearms with:\n\t+ Serial numbers\n\t+ Purchase dates\n\t+ Receipts\n\t+ Basic descriptive information\n\t+ Encryption and passphrase access\n* Supported scope: personal inventory and private documentation only\n* Excluded features:\n\t+ Firearm or ammunition sourcing\n\t+ Price comparison\n\t+ Purchase alerts\n\t+ Purchasing recommendations\n\n**Evidence:**\n\n[E1] User requirements in Codex chat, 2026-11-21: \"Build a local web inventory for owned firearms with serial numbers, purchase dates, receipts, basic descriptive information, encryption and passphrase access. No actual inventory or secret data has been provided.\"\n[E2] Repository cloned successfully from https://github.com/molsonini-blip/Firearms; the repository was empty.\n[E3] Implementation scope in Codex chat, 2026-11-21: \"Supported scope: personal inventory and private documentation only. Exclude firearm or ammunition sourcing, price comparison, purchase alerts, and purchasing recommendations.\"\n\n**Open Questions:**\n\n* What is the expected format for storing serial numbers, purchase dates, receipts, and basic descriptive information?\n* How will encryption and passphrase access be implemented?\n* Are there any specific security requirements or guidelines that need to be followed?\n\n**Independent Verification Still Required:**\n\n* Review of implementation details\n* Confirmation of encryption and passphrase access functionality\n* Verification of excluded features are not included in the implementation",
+  "evidence": [
+    {
+      "id": "E1",
+      "source": "User requirements in Codex chat, 2026-11-21",
+      "text": "Build a local web inventory for owned firearms with serial numbers, purchase dates, receipts, basic descriptive information, encryption and passphrase access. No actual inventory or secret data has been provided."
+    },
+    {
+      "id": "E2",
+      "source": "https://github.com/molsonini-blip/Firearms",
+      "text": "The repository was cloned successfully and was empty. There is no existing application or security implementation to preserve."
+    },
+    {
+      "id": "E3",
+      "source": "Implementation scope in Codex chat, 2026-11-21",
+      "text": "Supported scope: personal inventory and private documentation only. Exclude firearm or ammunition sourcing, price comparison, purchase alerts, and purchasing recommendations. Keep personal records and passphrases out of all model prompts. Local model output is advisory and cannot approve security."
+    }
+  ],
+  "limitations": "Model citations and accuracy require human or independent agent review; snapshot may be stale."
+}

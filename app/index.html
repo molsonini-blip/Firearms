@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Private inventory</title><link rel="stylesheet" href="/style.css"><script type="module" src="/app.mjs"></script></head>
+<body>
+<div id="notice" role="status" aria-live="polite"></div>
+<main id="gate">
+  <div class="brand"><span class="mark">P</span> PRIVATE INVENTORY</div>
+  <section class="unlock-card">
+    <span class="eyebrow">YOUR RECORDS. YOUR DEVICE.</span>
+    <h1>A private place<br>for your collection.</h1>
+    <p class="muted">Keep ownership details and receipts together, encrypted and close to home.</p>
+    <form id="unlock-form">
+      <h2 id="gate-heading">Loading your vault…</h2>
+      <label for="passphrase">Passphrase</label>
+      <input id="passphrase" type="password" autocomplete="current-password" required maxlength="256" placeholder="Your private passphrase">
+      <div id="confirm-group" hidden><label for="confirm-passphrase">Confirm passphrase</label><input id="confirm-passphrase" type="password" autocomplete="new-password" maxlength="256"></div>
+      <p id="pass-help" class="help"></p>
+      <button id="unlock-button" class="primary" disabled>Unlock vault</button>
+    </form>
+    <div class="rule"></div>
+    <p class="help">Local access only · No cloud sync · No account</p>
+    <button id="restore-button" class="text-button" type="button">Restore an encrypted backup</button>
+    <input id="restore-file" type="file" accept="application/json,.json" hidden>
+  </section>
+  <p class="gate-foot">Your passphrase cannot be recovered. Keep it somewhere safe.</p>
+</main>
+<main id="workspace" hidden>
+  <header><div class="brand"><span class="mark">P</span> PRIVATE INVENTORY</div><div class="header-actions"><span class="private-label">Encrypted vault</span><button id="lock-button" class="secondary">Lock vault</button></div></header>
+  <section class="page-heading"><div><span class="eyebrow">PERSONAL RECORDS</span><h1>Your collection</h1><p class="muted">A clear record of what you own.</p></div><button id="add-button" class="primary">+ Add firearm</button></section>
+  <section class="stats" aria-label="Inventory summary"><div><span class="muted">In your inventory</span><strong id="record-count">0</strong></div><div><span class="muted">Receipts attached</span><strong id="receipt-count">0</strong></div><div><span class="muted">Privacy</span><strong class="small-stat">On this device</strong></div></section>
+  <section class="inventory-panel"><div class="panel-toolbar"><h2>Inventory</h2><label class="search-label"><span class="sr-only">Search inventory</span><input id="search" type="search" placeholder="Search name, model, or serial number"></label></div><div id="records"></div></section>
+  <footer><p>Locks after 5 minutes idle or when this page is hidden. <span id="save-state">All changes saved.</span></p><div><button id="export-button" class="text-button">Export encrypted backup</button><button id="change-button" class="text-button">Change passphrase</button></div></footer>
+</main>
+<dialog id="record-dialog"><form id="record-form"><div class="dialog-heading"><h2 id="editor-heading">Add firearm</h2><button id="close-editor" type="button" class="icon-button" aria-label="Close editor">×</button></div><input id="record-id" type="hidden"><div class="form-grid">
+  <label class="wide">Display name<input name="name" id="name" required maxlength="160" placeholder="A name you recognize"></label>
+  <label>Manufacturer<input name="manufacturer" id="manufacturer" maxlength="160"></label><label>Model<input name="model" id="model" maxlength="160"></label>
+  <label class="wide">Serial number<input name="serial" id="serial" maxlength="160" autocomplete="off" spellcheck="false"></label>
+  <label>Purchase date<input name="purchaseDate" id="purchaseDate" type="date"></label><label>Purchase price (optional)<input name="purchasePrice" id="purchasePrice" maxlength="40" placeholder="Amount and currency"></label>
+  <label class="wide">Basic information & notes<textarea name="notes" id="notes" rows="4" maxlength="10000" placeholder="Ownership, storage, insurance, or maintenance records"></textarea></label>
+  <div class="wide"><label for="receipt-files">Receipts</label><p class="help">PDF, JPG, or PNG · Up to 8 MB each · 10 per record</p><input id="receipt-files" type="file" accept="application/pdf,image/jpeg,image/png" multiple><div id="receipt-list"></div></div>
+  </div><div class="dialog-footer"><button id="delete-button" type="button" class="danger" hidden>Delete record</button><button id="save-button" class="primary">Save encrypted record</button></div></form></dialog>
+<dialog id="password-dialog"><form id="password-form"><h2>Change passphrase</h2><p class="help">Export a backup first. Older backups will still require the old passphrase.</p><label>Current passphrase<input id="old-password" type="password" autocomplete="current-password" required></label><label>New passphrase<input id="new-password" type="password" autocomplete="new-password" minlength="14" maxlength="256" required></label><label>Confirm new passphrase<input id="repeat-password" type="password" autocomplete="new-password" required maxlength="256"></label><div class="dialog-footer"><button id="cancel-password" type="button" class="secondary">Cancel</button><button class="primary">Update encryption</button></div></form></dialog>
+</body></html>
