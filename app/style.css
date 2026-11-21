@@ -16,3 +16,10 @@ select{font:inherit;border:1px solid #415359;border-radius:7px;background:#121b1
 .gateway-row{display:flex;gap:24px;justify-content:space-between;align-items:flex-end;padding:16px 23px;border-top:1px solid var(--line)}.gateway-row p{margin:4px 0 0}.gateway-row label{min-width:240px;margin:0}
 @media(max-width:700px){.tabs{overflow-x:auto}.caliber-head,.gateway-row{flex-direction:column;align-items:stretch}.load-list .load{min-width:0}.source-table{display:block;overflow-x:auto}.check-label{display:none}}
 .ammo-section label{margin-top:14px}
+.field{display:block;font-size:.9rem;font-weight:500;margin-bottom:15px}.field-label{display:block}.caliber-field input{margin-top:8px}
+details.multi{position:relative;margin-top:7px}details.multi summary{list-style:none;cursor:pointer;border:1px solid #415359;background:#121b1e;color:#f3f5f6;padding:12px 40px 12px 12px;border-radius:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:400}details.multi summary::-webkit-details-marker{display:none}details.multi summary::after{content:"▾";position:absolute;right:14px;color:var(--muted)}details.multi[open] summary{outline:2px solid var(--mint);outline-offset:2px}details.multi summary:focus-visible{outline:2px solid var(--mint);outline-offset:2px}
+.multi-menu{position:absolute;z-index:20;left:0;right:0;min-width:280px;max-height:340px;overflow:auto;margin-top:6px;background:#162024;border:1px solid #4f6869;border-radius:9px;padding:6px 12px 10px;box-shadow:0 14px 40px #000a}
+.multi-group{border:0;margin:0;padding:6px 0;border-bottom:1px solid var(--line)}.multi-group legend{font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--mint);padding:4px 0}
+.multi-option{display:flex;gap:10px;align-items:center;margin:0;padding:6px 2px;font-weight:400;font-size:.88rem;cursor:pointer;border-radius:5px}.multi-option:hover{background:#1f2d31}.multi-option input{width:16px;height:16px;margin:0;accent-color:var(--mint)}.multi-done{display:block;margin:6px 0 0 auto}
+.load-heading{margin:12px 0 0;font-size:.85rem;color:#e5ebed}
+.form-grid>label,.form-grid>.field{align-self:start}
