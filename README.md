@@ -1,5 +1,8 @@
 # Private inventory
 
+See [User requirements](docs/REQUIREMENTS.md) for the complete requested scope,
+including features that are not implemented and the current status of each.
+
 A local web app for personal firearm ownership records. It stores display name,
 manufacturer, model, type, caliber/gauge, serial number, purchase date, purchase price, notes, and
 PDF/JPG/PNG receipts, and one photo per firearm. No inventory fields or photos are
