@@ -31,6 +31,7 @@ export function validateData(data) {
     ids.add(record.id);
     if (record.type !== undefined && !['','Pistol','Revolver','Rifle','Shotgun'].includes(record.type)) throw new Error('Invalid firearm type.');
     if (record.caliber !== undefined && (typeof record.caliber !== 'string' || record.caliber.length > 80)) throw new Error('Invalid caliber / gauge.');
+    if (record.ammo !== undefined && (typeof record.ammo !== 'string' || record.ammo.length > 2000)) throw new Error('Invalid preferred ammunition.');
     if (record.photo != null && (typeof record.photo.name !== 'string' ||
         !['image/jpeg','image/png','image/webp'].includes(record.photo.type) ||
         (record.photo.source !== undefined && typeof record.photo.source !== 'string') ||
@@ -40,7 +41,50 @@ export function validateData(data) {
           from64(receipt.data).length > 8 * 1024 * 1024) throw new Error('Invalid receipt.');
     }
   }
+  validateExtras(data);
   return data;
+}
+const text = (value, max) => typeof value === 'string' && value.length <= max;
+const https = value => text(value, 2048) && value.startsWith('https://');
+function uniqueIds(items, label) {
+  const ids = new Set();
+  for (const item of items) {
+    if (!item || !text(item.id, 80) || ids.has(item.id)) throw new Error(`Invalid ${label}.`);
+    ids.add(item.id);
+  }
+}
+// Optional sections added after v1; vaults without them stay valid.
+function validateExtras(data) {
+  if (data.wishlist !== undefined) {
+    if (!Array.isArray(data.wishlist) || data.wishlist.length > 500) throw new Error('Invalid wishlist.');
+    uniqueIds(data.wishlist, 'wishlist item');
+    for (const item of data.wishlist) {
+      if (!['name','manufacturer','model','caliber','targetPrice'].every(k => text(item[k], 160)) || !text(item.notes, 10000) ||
+          !['','Pistol','Revolver','Rifle','Shotgun'].includes(item.type) ||
+          !Array.isArray(item.urls) || item.urls.length > 10 || !item.urls.every(https)) throw new Error('Invalid wishlist item.');
+    }
+  }
+  if (data.sources !== undefined) {
+    if (!Array.isArray(data.sources) || data.sources.length > 100) throw new Error('Invalid website list.');
+    uniqueIds(data.sources, 'website');
+    for (const source of data.sources) {
+      if (!text(source.name, 160) || !https(source.url) || !text(source.location, 120) ||
+          !['ammo','firearm','both'].includes(source.kind)) throw new Error('Invalid website.');
+    }
+  }
+  if (data.ammoTargets !== undefined) {
+    if (!data.ammoTargets || typeof data.ammoTargets !== 'object' || Array.isArray(data.ammoTargets) ||
+        Object.entries(data.ammoTargets).some(([key, value]) => key.length > 20 || typeof value !== 'number' || !(value > 0 && value < 100)))
+      throw new Error('Invalid ammunition price targets.');
+  }
+  if (data.searchArea !== undefined && !text(data.searchArea, 120)) throw new Error('Invalid search area.');
+  if (data.lastCheck !== undefined && data.lastCheck !== null) {
+    const check = data.lastCheck;
+    if (!text(check.at, 40) || !Array.isArray(check.offers) || check.offers.length > 2000 || !Array.isArray(check.pages) || check.pages.length > 100 ||
+        !check.offers.every(o => o && text(o.title, 300) && typeof o.price === 'number' && https(o.url)) ||
+        !check.pages.every(p => p && text(p.url, 2048) && typeof p.ok === 'boolean' && text(p.note || '', 300) && typeof (p.count ?? 0) === 'number'))
+      throw new Error('Invalid saved price check.');
+  }
 }
 export async function seal(data, key, salt) {
   validateData(data);
