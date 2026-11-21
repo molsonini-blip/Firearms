@@ -131,7 +131,7 @@ function render() {
   $('receipt-count').textContent = records.reduce((count, record) => count + record.receipts.length, 0);
   const query = $('search').value.toLocaleLowerCase();
   const missingOnly = $('missing-only').checked;
-  const found = records.filter(record => (!missingOnly || !record.caliber) && [record.name,record.manufacturer,record.model,record.serial,record.type || '',record.caliber || ''].some(value => value.toLocaleLowerCase().includes(query)));
+  const found = records.filter(record => (!missingOnly || !hasCaliber(record)) && [record.name,record.manufacturer,record.model,record.serial,record.type || '',caliberText(record)].some(value => value.toLocaleLowerCase().includes(query)));
   renderWishlist(); renderDeals();
   $('records').replaceChildren();
   if (!found.length) {
@@ -145,10 +145,10 @@ function render() {
     const details = element('div',''); details.append(element('h3', record.name));
     const meta = element('div','', 'record-meta');
     meta.append(element('p', [record.manufacturer,record.model].filter(Boolean).join(' · ') || 'Details not added'),
-      element('p', [record.type,record.caliber].filter(Boolean).join(' · ') || 'Type not recorded'),
+      element('p', [record.type,caliberText(record)].filter(Boolean).join(' · ') || 'Type not recorded'),
       element('p', record.serial ? `SN: ${record.serial}` : 'No serial number recorded'),
       element('p', record.purchaseDate ? `Purchased ${record.purchaseDate}` : 'Purchase date not recorded'));
-    if (!record.caliber) meta.append(element('p','Caliber missing','chip warn'));
+    if (!hasCaliber(record)) meta.append(element('p','Caliber missing','chip warn'));
     details.append(meta);
     const actions = element('div','', 'record-actions');
     actions.append(element('span', `${record.receipts.length} receipt${record.receipts.length === 1 ? '' : 's'}`, 'receipt-badge'));
@@ -162,6 +162,7 @@ function edit(record = null) {
   if (!session || busy) return;
   $('record-form').reset(); $('record-id').value = record?.id || '';
   for (const field of fields) $(field).value = record?.[field] || '';
+  const split = splitLegacy(record); pickerSet('caliber-picker', split.keys); $('caliber').value = split.other;
   editingReceipts = structuredClone(record?.receipts || []);
   editorRevision++; editingPhoto = structuredClone(record?.photo || null); previewPhoto();
   $('editor-heading').textContent = record ? 'Record details' : 'Add firearm';
@@ -215,6 +216,7 @@ $('record-form').addEventListener('submit', event => {
     const active = session; if (!active) return;
     const record = {id:$('record-id').value || crypto.randomUUID(), receipts:structuredClone(editingReceipts), photo:structuredClone(editingPhoto)};
     for (const field of fields) record[field] = $(field).value.trim();
+    record.calibers = pickerGet('caliber-picker');
     if (!record.name) throw new Error('Enter a display name.');
     const files = [...$('receipt-files').files];
     if (files.length + record.receipts.length > 10) throw new Error('Limit receipts to 10 per record.');
@@ -294,13 +296,61 @@ document.querySelectorAll('dialog').forEach(dialog => dialog.addEventListener('c
   dialog.querySelector('form').reset(); editingReceipts=[];
 }));
 // ---------- Caliber picker & suggested ammunition ----------
-for (const item of CALIBERS) { const option = document.createElement('option'); option.value = item.label; $('caliber-list').append(option); }
+// Multi-select caliber dropdown (checkbox list grouped by type).
+const GROUPS = [['handgun','Handgun'],['rimfire','Rimfire'],['rifle','Rifle'],['shotgun','Shotgun']];
+function buildPicker(id, onChange) {
+  const picker = $(id), menu = picker.querySelector('.multi-menu');
+  for (const [kind, title] of GROUPS) {
+    const group = element('fieldset','','multi-group'); group.append(element('legend', title));
+    for (const item of CALIBERS.filter(c => c.kind === kind)) {
+      const label = element('label','','multi-option'), box = document.createElement('input');
+      box.type = 'checkbox'; box.value = item.key;
+      box.addEventListener('change', () => { pickerSummary(id); onChange?.(); });
+      label.append(box, item.label); group.append(label);
+    }
+    menu.append(group);
+  }
+  const done = element('button','Done','text-button multi-done'); done.type = 'button';
+  done.addEventListener('click', () => picker.open = false); menu.append(done);
+}
+const pickerGet = id => [...$(id).querySelectorAll('input:checked')].map(box => box.value);
+function pickerSet(id, keys) {
+  for (const box of $(id).querySelectorAll('input')) box.checked = keys.includes(box.value);
+  $(id).open = false; pickerSummary(id);
+}
+function pickerSummary(id) {
+  const labels = pickerGet(id).map(key => caliberByKey(key)?.label).filter(Boolean);
+  $(id).querySelector('summary').textContent = labels.length ? labels.join(', ') : 'Select calibers';
+}
+document.addEventListener('click', event => {
+  for (const picker of document.querySelectorAll('details.multi[open]')) if (!picker.contains(event.target)) picker.open = false;
+});
+/** Catalog keys for a record or wishlist item; older records only have free text. */
+function caliberKeys(item) {
+  const keys = new Set(Array.isArray(item.calibers) ? item.calibers : []);
+  const detected = detectCaliber(item.caliber); if (detected) keys.add(detected.key);
+  return [...keys].filter(key => caliberByKey(key));
+}
+function caliberText(item) {
+  const labels = (Array.isArray(item.calibers) ? item.calibers : []).map(key => caliberByKey(key)?.label).filter(Boolean);
+  return [...labels, item.caliber].filter(Boolean).join(', ');
+}
+const hasCaliber = item => Boolean(caliberText(item));
+// Legacy free text that exactly names a catalog caliber moves into the dropdown.
+function splitLegacy(item) {
+  if (Array.isArray(item?.calibers)) return {keys:item.calibers, other:item.caliber || ''};
+  const found = detectCaliber(item?.caliber), exact = found && found.label.toLowerCase() === String(item.caliber).trim().toLowerCase();
+  return {keys: found ? [found.key] : [], other: exact ? '' : (item?.caliber || '')};
+}
+buildPicker('caliber-picker', () => ammoSuggest()); buildPicker('wish-caliber-picker');
+
 function ammoSuggest() {
-  const box = $('ammo-suggest'), item = detectCaliber($('caliber').value);
+  const box = $('ammo-suggest'), keys = caliberKeys({calibers:pickerGet('caliber-picker'), caliber:$('caliber').value});
   box.replaceChildren();
-  if (!$('caliber').value.trim()) { box.textContent = 'Enter a caliber to see common factory loads.'; return; }
-  if (!item) { box.textContent = 'Not in the built-in list. Use the owner’s manual for ammunition guidance.'; return; }
-  box.append(element('p', `${item.label} — common factory loads. Barrel markings and the owner’s manual take precedence.`, 'help'));
+  if (!keys.length) { box.textContent = $('caliber').value.trim() ? 'Not in the built-in list. Use the owner’s manual for ammunition guidance.' : 'Select a caliber to see common factory loads.'; return; }
+  box.append(element('p', 'Common factory loads. Barrel markings and the owner’s manual take precedence.', 'help'));
+  for (const item of keys.map(caliberByKey)) {
+  if (keys.length > 1) box.append(element('h4', item.label, 'load-heading'));
   const list = element('ul','','load-list');
   for (const load of item.loads) {
     const row = element('li',''); row.append(element('span', load.load, 'load'), element('span', load.use, 'muted'));
@@ -311,8 +361,9 @@ function ammoSuggest() {
   }
   box.append(list);
   for (const caution of item.cautions) box.append(element('p', caution, 'caution'));
+  }
 }
-$('caliber').addEventListener('input', ammoSuggest);
+$('caliber').addEventListener('input', ammoSuggest);  // 'Other' text
 
 // ---------- Tabs ----------
 const titles = {collection:['Your collection','A clear record of what you own.'], wishlist:['Wishlist','Firearms you would like to buy, with the price you want to pay.'], deals:['Ammo & deals','Suggested ammunition for your calibers and current prices from the sites you watch.']};
@@ -339,7 +390,7 @@ function renderWishlist() {
     details.append(element('h3', item.name));
     const meta = element('div','','record-meta');
     meta.append(element('p', [item.manufacturer,item.model].filter(Boolean).join(' · ') || 'Details not added'),
-      element('p', [item.type,item.caliber].filter(Boolean).join(' · ') || 'Type and caliber not recorded'),
+      element('p', [item.type,caliberText(item)].filter(Boolean).join(' · ') || 'Type and caliber not recorded'),
       element('p', `Target ${usd(money(item.targetPrice))}`), element('p', `${item.urls.length} page${item.urls.length === 1 ? '' : 's'} watched`));
     const matches = offers.filter(offer => offer.wish === item.id).sort((a,b) => a.price - b.price);
     if (matches.length) {
@@ -354,8 +405,9 @@ function renderWishlist() {
 function editWish(item = null) {
   if (!session || busy) return;
   $('wish-form').reset(); $('wish-id').value = item?.id || '';
-  for (const [id,key] of [['wish-name','name'],['wish-manufacturer','manufacturer'],['wish-model','model'],['wish-type','type'],['wish-caliber','caliber'],['wish-target','targetPrice'],['wish-notes','notes']]) $(id).value = item?.[key] || '';
+  for (const [id,key] of [['wish-name','name'],['wish-manufacturer','manufacturer'],['wish-model','model'],['wish-type','type'],['wish-target','targetPrice'],['wish-notes','notes']]) $(id).value = item?.[key] || '';
   $('wish-urls').value = (item?.urls || []).join('\n');
+  const split = splitLegacy(item); pickerSet('wish-caliber-picker', split.keys); $('wish-caliber').value = split.other;
   $('wish-heading').textContent = item ? 'Wishlist item' : 'Add to wishlist'; $('delete-wish').hidden = !item;
   $('wish-dialog').showModal(); notice('');
 }
@@ -368,7 +420,7 @@ $('wish-form').addEventListener('submit', event => {
     if (urls.length > 10 || urls.some(url => !url.startsWith('https://') || url.length > 2048)) throw new Error('Use up to 10 HTTPS product page addresses.');
     if ($('wish-target').value.trim() && money($('wish-target').value) == null) throw new Error('Enter the target price as a number, e.g. 549.');
     const item = {id:$('wish-id').value || crypto.randomUUID(), name:$('wish-name').value.trim(), manufacturer:$('wish-manufacturer').value.trim(),
-      model:$('wish-model').value.trim(), type:$('wish-type').value, caliber:$('wish-caliber').value.trim(), targetPrice:$('wish-target').value.trim(),
+      model:$('wish-model').value.trim(), type:$('wish-type').value, calibers:pickerGet('wish-caliber-picker'), caliber:$('wish-caliber').value.trim(), targetPrice:$('wish-target').value.trim(),
       urls:[...new Set(urls)], notes:$('wish-notes').value.trim()};
     if (!item.name) throw new Error('Enter a name.');
     const wishlist = (active.data.wishlist || []).filter(other => other.id !== item.id); wishlist.push(item);
@@ -386,20 +438,22 @@ $('delete-wish').addEventListener('click', () => action(async () => {
 // ---------- Calibers, sources and price checks ----------
 function interestCalibers() {
   const map = new Map(), other = new Set();
-  const add = (text, owner, wished) => {
-    const item = detectCaliber(text);
-    if (!item) { if (text) other.add(text); return; }
-    const entry = map.get(item.key) || {item, owned:[], wished:[]};
-    (wished ? entry.wished : entry.owned).push(owner); map.set(item.key, entry);
+  const add = (source, owner, wished) => {
+    const keys = caliberKeys(source);
+    if (source.caliber && !detectCaliber(source.caliber)) other.add(source.caliber);
+    for (const key of keys) {
+      const entry = map.get(key) || {item:caliberByKey(key), owned:[], wished:[]};
+      (wished ? entry.wished : entry.owned).push(owner); map.set(key, entry);
+    }
   };
-  for (const record of session.data.records) add(record.caliber, record.name, false);
-  for (const item of session.data.wishlist || []) add(item.caliber, item.name, true);
+  for (const record of session.data.records) add(record, record.name, false);
+  for (const item of session.data.wishlist || []) add(item, item.name, true);
   return {known:[...map.values()], other:[...other]};
 }
 function renderDeals() {
   const {known, other} = interestCalibers(), targets = session.data.ammoTargets || {}, check = session.data.lastCheck;
   const offers = check?.offers || [];
-  const missing = session.data.records.filter(record => !record.caliber).length;
+  const missing = session.data.records.filter(record => !hasCaliber(record)).length;
   $('missing-caliber').hidden = !missing; $('missing-caliber').replaceChildren();
   if (missing) {
     const fix = element('button','Show them','text-button'); fix.type = 'button';
@@ -509,7 +563,7 @@ $('check-prices').addEventListener('click', () => action(async () => {
   const queries = gatewayReady ? [
     ...known.map(({item}) => ({kind:'ammo', id:item.key, caliber:item.label})),
     ...other.map(text => ({kind:'ammo', id:'', caliber:text})),
-    ...wishlist.map(item => ({kind:'firearm', id:item.id, manufacturer:item.manufacturer, model:item.model, caliber:item.caliber}))] : [];
+    ...wishlist.map(item => ({kind:'firearm', id:item.id, manufacturer:item.manufacturer, model:item.model, caliber:caliberText(item).slice(0,160)}))] : [];
   if (!pages.length && !queries.length) throw new Error('Add a website or wishlist product page first.');
   notice(`Checking ${pages.length} page${pages.length === 1 ? '' : 's'}${queries.length ? ' and the Source Gateway' : ''}…`);
   const response = await fetch('/api/price-check', {method:'POST', headers:{'Content-Type':'application/json','X-Vault-Request':'1'},

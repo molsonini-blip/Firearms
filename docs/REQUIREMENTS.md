@@ -19,7 +19,7 @@ browser address is `firearms`.
 | --- | --- | --- |
 | R01 | Track firearms currently owned. | Implemented: create, view, edit, delete, and search ownership records. |
 | R02 | Store serial number, purchase date, a copy of the receipt, and basic firearm information. | Implemented, including manufacturer, model, purchase price, and notes. |
-| R03 | Record caliber in firearm specifications. | Implemented as Caliber / gauge with a common-caliber picker (free text allowed), a *Caliber missing* tag, and a missing-caliber filter. |
+| R03 | Record caliber in firearm specifications. | Implemented as a multi-select Caliber / gauge dropdown of the catalog calibers plus an "Other" text box, a *Caliber missing* tag, and a missing-caliber filter. |
 | R04 | Record firearm type: Pistol, Revolver, Rifle, or Shotgun. | Implemented as a dropdown; existing records may remain Not specified. |
 | R05 | Include a firearm picture, with a choice of finding it on the manufacturer's website or uploading a personal photo. | Partially implemented: local upload and import from a supplied manufacturer product-page or image URL. Automatic manufacturer discovery/search is not implemented. Imported previews require user confirmation. |
 | R06 | Record recommended ammunition for each firearm. | Implemented: local catalog of common factory loads and safety cautions per caliber, shown in the editor and on Ammo & deals; encrypted *Preferred ammunition* field per firearm. |

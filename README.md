@@ -187,7 +187,8 @@ limits. See [workflow](docs/WORKFLOW.md) for the LiteLLM/Ollama pilot used here.
 
 ## Ammo, wishlist and price checks
 
-- **Caliber / gauge** has a picker of common calibers (free text still works).
+- **Caliber / gauge** is a multi-select dropdown of common calibers (pick more than one for
+  .357/.38, conversion barrels, etc.), with an *Other* box for anything not listed.
   Firearms without a caliber show a *Caliber missing* tag. Use the
   *Missing caliber only* filter to fill them in.
 - **Suggested ammunition** appears in the editor for recognized calibers: common

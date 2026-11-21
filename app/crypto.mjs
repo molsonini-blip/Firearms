@@ -31,6 +31,7 @@ export function validateData(data) {
     ids.add(record.id);
     if (record.type !== undefined && !['','Pistol','Revolver','Rifle','Shotgun'].includes(record.type)) throw new Error('Invalid firearm type.');
     if (record.caliber !== undefined && (typeof record.caliber !== 'string' || record.caliber.length > 80)) throw new Error('Invalid caliber / gauge.');
+    if (record.calibers !== undefined && !validKeys(record.calibers)) throw new Error('Invalid caliber selection.');
     if (record.ammo !== undefined && (typeof record.ammo !== 'string' || record.ammo.length > 2000)) throw new Error('Invalid preferred ammunition.');
     if (record.photo != null && (typeof record.photo.name !== 'string' ||
         !['image/jpeg','image/png','image/webp'].includes(record.photo.type) ||
@@ -44,6 +45,7 @@ export function validateData(data) {
   validateExtras(data);
   return data;
 }
+const validKeys = keys => Array.isArray(keys) && keys.length <= 20 && keys.every(key => typeof key === 'string' && key.length <= 20);
 const text = (value, max) => typeof value === 'string' && value.length <= max;
 const https = value => text(value, 2048) && value.startsWith('https://');
 function uniqueIds(items, label) {
@@ -61,7 +63,8 @@ function validateExtras(data) {
     for (const item of data.wishlist) {
       if (!['name','manufacturer','model','caliber','targetPrice'].every(k => text(item[k], 160)) || !text(item.notes, 10000) ||
           !['','Pistol','Revolver','Rifle','Shotgun'].includes(item.type) ||
-          !Array.isArray(item.urls) || item.urls.length > 10 || !item.urls.every(https)) throw new Error('Invalid wishlist item.');
+          !Array.isArray(item.urls) || item.urls.length > 10 || !item.urls.every(https) ||
+          (item.calibers !== undefined && !validKeys(item.calibers))) throw new Error('Invalid wishlist item.');
     }
   }
   if (data.sources !== undefined) {
