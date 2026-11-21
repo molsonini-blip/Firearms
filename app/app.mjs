@@ -4,7 +4,7 @@ let session = null, envelope = null, etag = null, restored = null, editingReceip
 let busy = false, generation = 0;
 let editingPhoto = null, editorRevision = 0;
 const photoURLs = new Map();
-const fields = ['name','manufacturer','model','serial','purchaseDate','purchasePrice','notes'];
+const fields = ['name','manufacturer','model','type','caliber','serial','purchaseDate','purchasePrice','notes'];
 
 function revokePhotos(group) {
   for (const [url, owner] of photoURLs) if (!group || owner === group) { URL.revokeObjectURL(url); photoURLs.delete(url); }
@@ -126,7 +126,7 @@ function render() {
   $('record-count').textContent = records.length;
   $('receipt-count').textContent = records.reduce((count, record) => count + record.receipts.length, 0);
   const query = $('search').value.toLocaleLowerCase();
-  const found = records.filter(record => [record.name,record.manufacturer,record.model,record.serial].some(value => value.toLocaleLowerCase().includes(query)));
+  const found = records.filter(record => [record.name,record.manufacturer,record.model,record.serial,record.type || '',record.caliber || ''].some(value => value.toLocaleLowerCase().includes(query)));
   $('records').replaceChildren();
   if (!found.length) {
     const empty = element('div','', 'empty');
@@ -139,6 +139,7 @@ function render() {
     const details = element('div',''); details.append(element('h3', record.name));
     const meta = element('div','', 'record-meta');
     meta.append(element('p', [record.manufacturer,record.model].filter(Boolean).join(' · ') || 'Details not added'),
+      element('p', [record.type,record.caliber].filter(Boolean).join(' · ') || 'Type and caliber not recorded'),
       element('p', record.serial ? `SN: ${record.serial}` : 'No serial number recorded'),
       element('p', record.purchaseDate ? `Purchased ${record.purchaseDate}` : 'Purchase date not recorded'));
     details.append(meta);

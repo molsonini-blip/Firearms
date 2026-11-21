@@ -67,3 +67,10 @@ check encountered an existing LineupLedger certificate on the host address. The
 route that had been added was specifically removed after rechecking it against
 the empty original Serve configuration. Existing host services were not changed.
 The app-specific userspace identity is intended to avoid that address conflict.
+
+## Type and caliber update
+
+Five Node cryptography tests pass. Added coverage verifies encrypted type/caliber
+round trips, compatibility with existing records lacking these fields, and rejection
+of unsupported types or invalid caliber data. JavaScript syntax and diff checks
+passed. No backend or network configuration changed in this update.

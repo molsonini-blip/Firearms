@@ -43,3 +43,15 @@ test('photos encrypt with records and old photo-free vaults still open', async (
   withPhoto.records[0].photo.type='image/svg+xml';
   await assert.rejects(seal(withPhoto,key,salt));
 });
+test('type and caliber persist encrypted while older records remain compatible', async () => {
+  const salt=crypto.getRandomValues(new Uint8Array(16)),key=await derive(pass,salt);
+  const specs=structuredClone(data); specs.records[0].type='Rifle'; specs.records[0].caliber='Synthetic caliber';
+  const vault=await seal(specs,key,salt);
+  assert.equal(JSON.stringify(vault).includes('Synthetic caliber'),false);
+  assert.deepEqual((await open(vault,pass)).data,specs);
+  assert.deepEqual((await open(await seal(data,key,salt),pass)).data,data);
+  specs.records[0].type='Invalid type';
+  await assert.rejects(seal(specs,key,salt));
+  specs.records[0].type='Shotgun'; specs.records[0].caliber=123;
+  await assert.rejects(seal(specs,key,salt));
+});

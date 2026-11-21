@@ -29,6 +29,8 @@ export function validateData(data) {
       !['name','manufacturer','model','serial','purchaseDate','purchasePrice','notes'].every(k => typeof record[k] === 'string') ||
       !Array.isArray(record.receipts) || record.receipts.length > 10) throw new Error('Invalid inventory record.');
     ids.add(record.id);
+    if (record.type !== undefined && !['','Pistol','Revolver','Rifle','Shotgun'].includes(record.type)) throw new Error('Invalid firearm type.');
+    if (record.caliber !== undefined && (typeof record.caliber !== 'string' || record.caliber.length > 80)) throw new Error('Invalid caliber / gauge.');
     if (record.photo != null && (typeof record.photo.name !== 'string' ||
         !['image/jpeg','image/png','image/webp'].includes(record.photo.type) ||
         (record.photo.source !== undefined && typeof record.photo.source !== 'string') ||

@@ -1,7 +1,7 @@
 # Private inventory
 
 A local web app for personal firearm ownership records. It stores display name,
-manufacturer, model, serial number, purchase date, purchase price, notes, and
+manufacturer, model, type, caliber/gauge, serial number, purchase date, purchase price, notes, and
 PDF/JPG/PNG receipts, and one photo per firearm. No inventory fields or photos are
 sent to AI models. Optional website imports send only the supplied address to
 the chosen website; private Tailscale access serves encrypted records to your
@@ -83,6 +83,11 @@ See the official [Tailscale Serve documentation](https://tailscale.com/docs/feat
 2. Choose **Save encrypted record**. Details and receipts are encrypted together.
 3. Search by name, manufacturer, model, or serial number. Use **View / edit** to
    update details, download a receipt, or delete a record.
+
+The **Type** dropdown offers Pistol, Revolver, Rifle, and Shotgun (or Not specified).
+**Caliber / gauge** is a descriptive field: copy the marking or manufacturer manual
+information for your record. Both fields are encrypted and searchable. Existing
+records open with empty values until you edit and save them; no migration is needed.
 4. Export an **encrypted backup**, and store a copy on a separate device. Local
    storage is not a backup; disk failure can destroy the vault. The app does not
    automatically make historical backups.
