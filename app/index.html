@@ -18,7 +18,7 @@
       <button id="unlock-button" class="primary" disabled>Unlock vault</button>
     </form>
     <div class="rule"></div>
-    <p class="help">Local access only · No cloud sync · No account</p>
+    <p class="help">Private access · No cloud sync · No app account</p>
     <button id="restore-button" class="text-button" type="button">Restore an encrypted backup</button>
     <input id="restore-file" type="file" accept="application/json,.json" hidden>
   </section>
@@ -33,6 +33,7 @@
 </main>
 <dialog id="record-dialog"><form id="record-form"><div class="dialog-heading"><h2 id="editor-heading">Add firearm</h2><button id="close-editor" type="button" class="icon-button" aria-label="Close editor">×</button></div><input id="record-id" type="hidden"><div class="form-grid">
   <label class="wide">Display name<input name="name" id="name" required maxlength="160" placeholder="A name you recognize"></label>
+  <section class="wide photo-section" aria-label="Firearm photo"><h3>Photo</h3><div id="photo-preview" class="photo-preview">No photo added</div><label for="photo-file">Upload your own photo</label><input id="photo-file" type="file" accept="image/jpeg,image/png,image/webp"><p class="help">JPG, PNG, or WebP · Up to 8 MB · Photos are resized and location metadata is removed.</p><label for="photo-url">Or use a manufacturer page or image address</label><input id="photo-url" type="url" placeholder="https://manufacturer.example/product-page" maxlength="2048"><p class="help">Find photo contacts that website to import its preview image. No serial numbers or other record details are sent. Verify that you are using the official manufacturer site.</p><div class="photo-actions"><button id="import-photo" type="button" class="secondary">Find photo</button><button id="remove-photo" type="button" class="text-button" hidden>Remove photo</button></div><p class="help">Preview the image, then choose Save encrypted record. If the site blocks importing, download its image and upload it here.</p></section>
   <label>Manufacturer<input name="manufacturer" id="manufacturer" maxlength="160"></label><label>Model<input name="model" id="model" maxlength="160"></label>
   <label class="wide">Serial number<input name="serial" id="serial" maxlength="160" autocomplete="off" spellcheck="false"></label>
   <label>Purchase date<input name="purchaseDate" id="purchaseDate" type="date"></label><label>Purchase price (optional)<input name="purchasePrice" id="purchasePrice" maxlength="40" placeholder="Amount and currency"></label>

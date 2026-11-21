@@ -32,3 +32,14 @@ test('rejects invalid receipt types and duplicate records', async () => {
   const bad = structuredClone(data); bad.records[0].receipts[0].type = 'text/html';
   await assert.rejects(seal(bad,key,salt));
 });
+test('photos encrypt with records and old photo-free vaults still open', async () => {
+  const salt=crypto.getRandomValues(new Uint8Array(16)), key=await derive(pass,salt);
+  const withPhoto=structuredClone(data);
+  withPhoto.records[0].photo={name:'private-photo.jpg',type:'image/jpeg',data:btoa('synthetic-photo-bytes'),source:'https://manufacturer.example/photo.jpg'};
+  const encrypted=await seal(withPhoto,key,salt);
+  assert.equal(JSON.stringify(encrypted).includes('private-photo'),false);
+  assert.deepEqual((await open(encrypted,pass)).data,withPhoto);
+  assert.deepEqual((await open(await seal(data,key,salt),pass)).data,data);
+  withPhoto.records[0].photo.type='image/svg+xml';
+  await assert.rejects(seal(withPhoto,key,salt));
+});

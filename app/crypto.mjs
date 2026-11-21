@@ -29,6 +29,10 @@ export function validateData(data) {
       !['name','manufacturer','model','serial','purchaseDate','purchasePrice','notes'].every(k => typeof record[k] === 'string') ||
       !Array.isArray(record.receipts) || record.receipts.length > 10) throw new Error('Invalid inventory record.');
     ids.add(record.id);
+    if (record.photo != null && (typeof record.photo.name !== 'string' ||
+        !['image/jpeg','image/png','image/webp'].includes(record.photo.type) ||
+        (record.photo.source !== undefined && typeof record.photo.source !== 'string') ||
+        from64(record.photo.data).length > 8 * 1024 * 1024)) throw new Error('Invalid record photo.');
     for (const receipt of record.receipts) {
       if (!receipt || typeof receipt.name !== 'string' || !['application/pdf','image/jpeg','image/png'].includes(receipt.type) ||
           from64(receipt.data).length > 8 * 1024 * 1024) throw new Error('Invalid receipt.');

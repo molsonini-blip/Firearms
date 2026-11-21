@@ -2,9 +2,54 @@ import {derive, open, seal, validateEnvelope, to64, from64} from './crypto.mjs';
 const $ = id => document.getElementById(id);
 let session = null, envelope = null, etag = null, restored = null, editingReceipts = [], idle;
 let busy = false, generation = 0;
+let editingPhoto = null, editorRevision = 0;
+const photoURLs = new Map();
 const fields = ['name','manufacturer','model','serial','purchaseDate','purchasePrice','notes'];
 
-function notice(text) { $('notice').textContent = text; }
+function revokePhotos(group) {
+  for (const [url, owner] of photoURLs) if (!group || owner === group) { URL.revokeObjectURL(url); photoURLs.delete(url); }
+}
+function photoImage(photo, alt, group) {
+  const url = URL.createObjectURL(new Blob([from64(photo.data)], {type:photo.type}));
+  photoURLs.set(url,group);
+  const image = document.createElement('img'); image.src = url; image.alt = alt; return image;
+}
+function previewPhoto() {
+  revokePhotos('editor'); $('photo-preview').replaceChildren();
+  if (editingPhoto) $('photo-preview').append(photoImage(editingPhoto,'Photo for this record','editor'));
+  else $('photo-preview').textContent = 'No photo added';
+  $('remove-photo').hidden = !editingPhoto;
+}
+function clearPhotoEditor() {
+  editorRevision++; editingPhoto = null; revokePhotos('editor');
+  $('photo-preview').replaceChildren(); $('photo-file').value = ''; $('photo-url').value = '';
+}
+async function preparePhoto(blob, name, source) {
+  if (!['image/jpeg','image/png','image/webp'].includes(blob.type) || blob.size > 8*1024*1024) throw new Error('Choose a JPG, PNG, or WebP photo up to 8 MB.');
+  let bitmap;
+  try { bitmap = await createImageBitmap(blob); }
+  catch { throw new Error('This image could not be decoded. Choose a valid JPG, PNG, or WebP photo.'); }
+  try {
+    if (bitmap.width * bitmap.height > 40000000) throw new Error('Photo dimensions are too large. Choose a smaller photo.');
+    const scale = Math.min(1,1600/Math.max(bitmap.width,bitmap.height));
+    const canvas = document.createElement('canvas'); canvas.width = Math.max(1,Math.round(bitmap.width*scale)); canvas.height = Math.max(1,Math.round(bitmap.height*scale));
+    const context = canvas.getContext('2d'); context.fillStyle = '#ffffff'; context.fillRect(0,0,canvas.width,canvas.height);
+    context.drawImage(bitmap,0,0,canvas.width,canvas.height);
+    const clean = await new Promise(resolve => canvas.toBlob(resolve,'image/jpeg',0.9));
+    if (!clean) throw new Error('Could not process this photo. Try a different image.');
+    return {name, type:'image/jpeg', data:to64(new Uint8Array(await clean.arrayBuffer())), ...(source ? {source} : {})};
+  } finally { bitmap.close(); }
+}
+
+function notice(text) {
+  $('notice').textContent = text;
+  const dialog=document.querySelector('dialog[open]');
+  if (dialog) {
+    let output=dialog.querySelector('.dialog-notice');
+    if (!output) { output=element('p','','dialog-notice help'); output.setAttribute('role','status'); dialog.prepend(output); }
+    output.textContent=text;
+  }
+}
 function setBusy(value) {
   busy = value;
   document.querySelectorAll('button').forEach(button => button.disabled = value && button.id !== 'lock-button');
@@ -52,6 +97,7 @@ function touch() {
 }
 function lock(message = 'Vault locked.') {
   generation++; session = null; editingReceipts = []; restored = null; clearTimeout(idle);
+  clearPhotoEditor(); revokePhotos();
   document.querySelectorAll('dialog[open]').forEach(dialog => dialog.close());
   document.querySelectorAll('form').forEach(form => form.reset());
   $('search').value = ''; $('records').replaceChildren(); $('receipt-list').replaceChildren();
@@ -75,6 +121,7 @@ function element(tag, text, className) {
 }
 function render() {
   if (!session) return;
+  revokePhotos('inventory');
   const records = session.data.records;
   $('record-count').textContent = records.length;
   $('receipt-count').textContent = records.reduce((count, record) => count + record.receipts.length, 0);
@@ -98,7 +145,9 @@ function render() {
     const actions = element('div','', 'record-actions');
     actions.append(element('span', `${record.receipts.length} receipt${record.receipts.length === 1 ? '' : 's'}`, 'receipt-badge'));
     const button = element('button','View / edit','secondary'); button.addEventListener('click', () => edit(record));
-    actions.append(button); row.append(details,actions); $('records').append(row);
+    const identity = element('div','', 'record-identity');
+    if (record.photo) { const image = photoImage(record.photo,`Photo of ${record.name}`,'inventory'); image.className='record-photo'; identity.append(image); }
+    identity.append(details); actions.append(button); row.append(identity,actions); $('records').append(row);
   }
 }
 function edit(record = null) {
@@ -106,8 +155,10 @@ function edit(record = null) {
   $('record-form').reset(); $('record-id').value = record?.id || '';
   for (const field of fields) $(field).value = record?.[field] || '';
   editingReceipts = structuredClone(record?.receipts || []);
+  editorRevision++; editingPhoto = structuredClone(record?.photo || null); previewPhoto();
   $('editor-heading').textContent = record ? 'Record details' : 'Add firearm';
   $('delete-button').hidden = !record; receipts(); $('record-dialog').showModal();
+  notice('');
 }
 function download(blob, filename) {
   const url = URL.createObjectURL(blob); const link = document.createElement('a');
@@ -154,7 +205,7 @@ $('unlock-form').addEventListener('submit', event => {
 $('record-form').addEventListener('submit', event => {
   event.preventDefault(); action(async () => {
     const active = session; if (!active) return;
-    const record = {id:$('record-id').value || crypto.randomUUID(), receipts:structuredClone(editingReceipts)};
+    const record = {id:$('record-id').value || crypto.randomUUID(), receipts:structuredClone(editingReceipts), photo:structuredClone(editingPhoto)};
     for (const field of fields) record[field] = $(field).value.trim();
     if (!record.name) throw new Error('Enter a display name.');
     const files = [...$('receipt-files').files];
@@ -206,6 +257,26 @@ $('add-button').addEventListener('click', () => edit());
 $('close-editor').addEventListener('click', () => { $('record-dialog').close(); $('record-form').reset(); editingReceipts=[]; });
 $('lock-button').addEventListener('click', () => lock());
 $('search').addEventListener('input',render);
+$('photo-file').addEventListener('change', () => action(async () => {
+  const file = $('photo-file').files[0], active = session, revision = editorRevision;
+  if (!file || !active) return;
+  const photo = await preparePhoto(file,file.name);
+  if (session === active && revision === editorRevision) { editingPhoto = photo; previewPhoto(); notice('Photo ready. Save the record to keep it encrypted.'); }
+}));
+$('import-photo').addEventListener('click', () => action(async () => {
+  const active = session, revision = editorRevision, url = $('photo-url').value.trim();
+  if (!active) return;
+  if (!url.startsWith('https://')) throw new Error('Enter the manufacturer’s HTTPS product page or direct image address.');
+  notice('Looking for a photo on that website…');
+  const response = await fetch('/api/photo-import', {method:'POST',headers:{'Content-Type':'application/json','X-Vault-Request':'1'},body:JSON.stringify({url})});
+  const result = await response.json();
+  if (!response.ok) throw new Error(result.error || 'Could not import this image. Try uploading a photo.');
+  if (session !== active || revision !== editorRevision) return;
+  const photo = await preparePhoto(new Blob([from64(result.data)],{type:result.type}),result.name,result.source);
+  if (session === active && revision === editorRevision) { editingPhoto=photo; previewPhoto(); notice('Photo found. Check the preview, then save the encrypted record.'); }
+}));
+$('remove-photo').addEventListener('click', () => { editingPhoto=null; $('photo-file').value=''; previewPhoto(); });
+$('record-dialog').addEventListener('close',clearPhotoEditor);
 for (const event of ['pointerdown','keydown','input']) document.addEventListener(event,touch,{passive:true});
 document.addEventListener('visibilitychange', () => { if (document.hidden) lock('Locked while the page was hidden. Unsaved edits were discarded.'); });
 window.addEventListener('pagehide', () => lock());

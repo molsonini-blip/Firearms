@@ -27,3 +27,43 @@ testing used only synthetic data and a separate temporary encrypted file.
 
 The local-model handoff used requirements only. Its output was reviewed as a
 draft; it did not verify security or actual user inventory.
+
+## Photo and private-network update
+
+- Four Node tests now pass, including photo encryption and backward compatibility
+  with records that have no photo.
+- Eight Python tests now cover the server, photo importer, exact Tailnet
+  origin/owner checks, and fixed HTTPS redirect target. Import tests cover private
+  addresses, mixed public/private DNS answers, redirects to private addresses,
+  page-image extraction, invalid image content, URL-only request payloads, and
+  no unencrypted photo files being written by the importer.
+- Browser testing on the separate synthetic vault confirmed upload preview,
+  encrypted save, locking, and photo persistence after unlocking. A public
+  manufacturer image import was also previewed and saved successfully.
+- A public manufacturer homepage returned its preview logo in a direct importer
+  test. This confirms page extraction; it does not establish that every page
+  supplies the correct firearm image. Users must check the preview. Some sites
+  require a direct image address or manual download/upload.
+- The original 1-pixel receipt fixture was not a decodable image. The app rejected
+  it without replacing the saved photo. Testing continued with a valid synthetic
+  PNG, and errors/status are now visible within the editor dialog.
+- Personal vault data was not read by the agent or sent to a model. UI testing
+  remained isolated from the user's real vault.
+
+The isolated `firearms` userspace Tailscale identity was approved by the user and
+reported `Running` with DNS name `firearms.tail2080e6.ts.net`. Its first certificate
+was successfully issued after supplying an explicit certificate/state directory.
+Private HTTPS returned HTTP 200 with certificate validation enabled. An unrelated
+Origin received HTTP 403. HTTP `firearms` returned a 308 redirect to the fixed HTTPS
+name, and the browser followed `http://firearms/` to the app's vault setup screen.
+
+These network checks ran from EdgeXpert's original Tailscale identity to the
+separate app identity on that host. An off-host computer/phone has not been tested
+by the agent; it must be connected to the tailnet with MagicDNS enabled and use
+the same owner's Tailscale identity. No machine rename or host tagging was performed.
+
+A temporary host-level Serve route was added during investigation. A local TLS
+check encountered an existing LineupLedger certificate on the host address. The
+route that had been added was specifically removed after rechecking it against
+the empty original Serve configuration. Existing host services were not changed.
+The app-specific userspace identity is intended to avoid that address conflict.

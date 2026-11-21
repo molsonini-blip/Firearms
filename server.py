@@ -10,6 +10,8 @@ from pathlib import Path
 import re
 import tempfile
 import threading
+from urllib.parse import urlsplit
+from photo_import import import_photo
 
 ROOT = Path(__file__).resolve().parent
 MAX_SIZE = 48 * 1024 * 1024
@@ -33,8 +35,10 @@ def valid_envelope(value):
 class VaultServer(ThreadingHTTPServer):
     daemon_threads = True
 
-    def __init__(self, address, data_dir):
+    def __init__(self, address, data_dir, tailnet_origin=None, tailnet_user=None):
         self.data_dir = data_dir
+        self.tailnet_origin = tailnet_origin
+        self.tailnet_user = tailnet_user
         self.write_lock = threading.Lock()
         super().__init__(address, Handler)
 
@@ -47,7 +51,14 @@ class Handler(BaseHTTPRequestHandler):
         expected = f'127.0.0.1:{self.server.server_port}'
         host = self.headers.get('Host', '')
         origin = self.headers.get('Origin')
-        return host == expected and (origin is None or origin == f'http://{expected}')
+        proxied = any(self.headers.get(header) for header in ('Tailscale-User-Login', 'X-Forwarded-For', 'X-Forwarded-Host'))
+        if not proxied and host == expected and origin in (None, f'http://{expected}'):
+            return True
+        configured = self.server.tailnet_origin
+        return bool(configured and self.server.tailnet_user
+                    and host in (expected, urlsplit(configured).netloc)
+                    and origin in (None, configured)
+                    and self.headers.get('Tailscale-User-Login') == self.server.tailnet_user)
 
     def reply(self, code, body=b'', kind='application/json', etag=None):
         self.send_response(code)
@@ -58,7 +69,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header('Referrer-Policy', 'no-referrer')
         self.send_header('X-Frame-Options', 'DENY')
         self.send_header('Cross-Origin-Resource-Policy', 'same-origin')
-        self.send_header('Content-Security-Policy', "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; object-src 'none'")
+        self.send_header('Content-Security-Policy', "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' blob:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; object-src 'none'")
         if etag:
             self.send_header('ETag', etag)
         self.end_headers()
@@ -119,13 +130,63 @@ class Handler(BaseHTTPRequestHandler):
                     os.unlink(temporary)
         self.reply(200, b'{}', etag='"' + hashlib.sha256(data).hexdigest() + '"')
 
+    def do_POST(self):
+        if not self.allowed() or self.headers.get('X-Vault-Request') != '1':
+            return self.reply(403)
+        if self.path != '/api/photo-import':
+            return self.reply(404)
+        length = self.headers.get('Content-Length', '')
+        if self.headers.get('Content-Type') != 'application/json' or self.headers.get('Transfer-Encoding'):
+            return self.reply(415)
+        if not re.fullmatch(r'[0-9]{1,5}', length) or not 0 < int(length) <= 4096:
+            return self.reply(413)
+        self.connection.settimeout(15)
+        try:
+            payload = json.loads(self.rfile.read(int(length)))
+            if not isinstance(payload, dict) or set(payload) != {'url'}:
+                raise ValueError('Supply only the manufacturer page or image address.')
+            data, kind, source = import_photo(payload['url'])
+            result = dict(name='Manufacturer photo', type=kind, data=base64.b64encode(data).decode(), source=source)
+            self.reply(200, json.dumps(result).encode())
+        except ValueError as error:
+            self.reply(400, json.dumps({'error': str(error)}).encode())
+        except Exception:
+            self.reply(502, json.dumps({'error': 'The website could not be reached. Try a direct image address or upload a photo.'}).encode())
+
+
+class HTTPSRedirect(BaseHTTPRequestHandler):
+    def log_message(self, *_):
+        pass
+
+    def do_GET(self):
+        self.send_response(308)
+        self.send_header('Location', self.server.target_origin + '/')
+        self.send_header('Cache-Control', 'no-store')
+        self.send_header('Content-Length', '0')
+        self.end_headers()
+
+    do_HEAD = do_GET
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--port', type=int, default=8765)
     parser.add_argument('--data-dir', type=Path, default=ROOT / 'data', help='Encrypted vault directory; override for isolated testing.')
+    parser.add_argument('--tailnet-origin', help='Exact HTTPS origin of the trusted Tailscale Serve endpoint.')
+    parser.add_argument('--tailnet-user', help='Only this Tailscale login may use the remote endpoint.')
+    parser.add_argument('--redirect-port', type=int, help='Optional loopback HTTP-to-HTTPS redirect listener for the app identity.')
     args = parser.parse_args()
-    with VaultServer(('127.0.0.1', args.port), args.data_dir) as server:
+    if bool(args.tailnet_origin) != bool(args.tailnet_user):
+        parser.error('Supply both --tailnet-origin and --tailnet-user, or neither.')
+    if args.tailnet_origin and not re.fullmatch(r'https://[a-z0-9-]+\.[a-z0-9-]+\.ts\.net(?::[0-9]+)?', args.tailnet_origin):
+        parser.error('--tailnet-origin must be an exact HTTPS Tailscale hostname without a path.')
+    if args.redirect_port and not args.tailnet_origin:
+        parser.error('--redirect-port requires --tailnet-origin.')
+    if args.redirect_port:
+        redirect=ThreadingHTTPServer(('127.0.0.1',args.redirect_port),HTTPSRedirect)
+        redirect.target_origin=args.tailnet_origin
+        threading.Thread(target=redirect.serve_forever,daemon=True).start()
+    with VaultServer(('127.0.0.1', args.port), args.data_dir, args.tailnet_origin, args.tailnet_user) as server:
         print(f'Private inventory: http://127.0.0.1:{server.server_port}', flush=True)
         print('Keep this terminal running. Ctrl+C stops the app.', flush=True)
         try:

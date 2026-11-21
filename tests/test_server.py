@@ -7,8 +7,9 @@ import sys
 import tempfile
 import threading
 import unittest
+from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from server import VaultServer
+from server import VaultServer, HTTPSRedirect, ThreadingHTTPServer
 
 FIXTURE = dict(version=1,kdf='PBKDF2-SHA256',iterations=600000,cipher='AES-256-GCM',
                salt=base64.b64encode(b'x'*16).decode(),iv=base64.b64encode(b'x'*12).decode(),
@@ -54,6 +55,45 @@ class ServerTests(unittest.TestCase):
         headers.pop('If-None-Match'); headers['If-Match'] = saved['ETag']
         self.assertEqual(self.request('PUT','/api/vault',payload,headers)[0],200)
         self.assertEqual(json.loads(self.request('GET','/api/vault')[2]),FIXTURE)
+
+    def test_photo_import_requires_local_request_and_only_a_url(self):
+        headers={'Content-Type':'application/json','X-Vault-Request':'1'}
+        self.assertEqual(self.request('POST','/api/photo-import','{}',{'Content-Type':'application/json'})[0],403)
+        with patch('server.import_photo',return_value=(b'photo','image/jpeg','https://manufacturer.example/photo')) as fetch:
+            self.assertEqual(self.request('POST','/api/photo-import',json.dumps({'url':'https://manufacturer.example','serial':'do-not-send'}),headers)[0],400)
+            fetch.assert_not_called()
+            status,_,body=self.request('POST','/api/photo-import',json.dumps({'url':'https://manufacturer.example'}),headers)
+            self.assertEqual(status,200)
+            self.assertEqual(json.loads(body)['data'],base64.b64encode(b'photo').decode())
+            self.assertFalse(self.data.exists())
+
+    def test_tailnet_requires_exact_origin_and_owner_identity(self):
+        remote='inventory.tailtest.ts.net'
+        headers={'Host':remote,'Origin':'https://'+remote,'Tailscale-User-Login':'owner@example.test'}
+        self.assertEqual(self.request('GET',headers=headers)[0],403)
+        self.server.tailnet_origin='https://'+remote
+        self.server.tailnet_user='owner@example.test'
+        self.assertEqual(self.request('GET',headers=headers)[0],200)
+        self.assertEqual(self.request('GET',headers={**headers,'Tailscale-User-Login':'other@example.test'})[0],403)
+        self.assertEqual(self.request('GET',headers={**headers,'Origin':'https://evil.example'})[0],403)
+        self.assertEqual(self.request('GET',headers={'Host':remote})[0],403)
+        self.assertEqual(self.request('GET',headers={'X-Forwarded-For':'100.64.0.5'})[0],403)
+        self.assertEqual(self.request('GET',headers={'X-Forwarded-For':'100.64.0.5','Tailscale-User-Login':'owner@example.test'})[0],200)
+
+    def test_short_http_address_redirects_only_to_fixed_https_origin(self):
+        redirect=ThreadingHTTPServer(('127.0.0.1',0),HTTPSRedirect)
+        redirect.target_origin='https://firearms.tailtest.ts.net'
+        worker=threading.Thread(target=redirect.serve_forever,daemon=True); worker.start()
+        try:
+            connection=HTTPConnection('127.0.0.1',redirect.server_port,timeout=5)
+            connection.request('GET','//evil.example/anything?private=value',headers={'Host':'firearms'})
+            response=connection.getresponse()
+            self.assertEqual(response.status,308)
+            self.assertEqual(response.getheader('Location'),'https://firearms.tailtest.ts.net/')
+            self.assertEqual(response.read(),b'')
+            connection.close()
+        finally:
+            redirect.shutdown(); redirect.server_close(); worker.join()
 
 
 if __name__ == '__main__':
