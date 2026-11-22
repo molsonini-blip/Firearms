@@ -59,18 +59,28 @@ def details():
     host=own['DNSName'].rstrip('.')
     if not host.startswith('firearms.'):
         raise RuntimeError(f'Tailscale assigned {host}. Resolve the name conflict before continuing.')
-    user=data['User'][str(own['UserID'])]['LoginName']
+    user=((data.get('User') or {}).get(str(own['UserID'])) or {}).get('LoginName')
+    if not user:
+        raise RuntimeError('App Tailscale owner identity is still loading.')
     return host,user
 
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action',choices=('daemon','connect','status','serve','run'))
+    parser.add_argument('action',choices=('daemon','connect','status','serve','run','wait'))
     args=parser.parse_args()
     if args.action=='daemon': daemon()
     elif args.action=='connect':
         daemon()
         return command('up','--hostname=firearms','--accept-dns=false','--accept-routes=false').returncode
+    elif args.action=='wait':
+        for _ in range(120):
+            try:
+                details()
+                return 0
+            except (RuntimeError, KeyError):
+                time.sleep(0.5)
+        raise RuntimeError('App identity did not become ready. Check python3 tailnet.py status and reauthorize if necessary.')
     elif args.action=='status':
         data=status()
         print(json.dumps({'state':data.get('BackendState'),'name':data.get('Self',{}).get('DNSName')},indent=2))

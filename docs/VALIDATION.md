@@ -75,6 +75,25 @@ round trips, compatibility with existing records lacking these fields, and rejec
 of unsupported types or invalid caliber data. JavaScript syntax and diff checks
 passed. No backend or network configuration changed in this update.
 
+## Managed startup on EdgeXpert
+
+Installed and enabled current-user `private-inventory-tailnet.service` and
+`private-inventory.service`. User lingering was already enabled. The existing
+app-specific Tailscale state, certificate directory, and encrypted vault location
+were reused. The host's primary Tailscale service was not modified.
+
+Systemd unit validation passed. Restarting both services initially exposed an
+owner-map loading race: Tailscale can report Running before its owner metadata
+is available. The readiness check now waits for that metadata. Two targeted tests
+pass for that condition and for rejection of a suffixed hostname collision.
+
+After the fix, restarting both services completed successfully; both were active,
+the app had zero automatic retry restarts, and private HTTPS returned HTTP 200.
+The short HTTP name also returned the expected 308 redirect during initial
+service cutover. Both units are enabled for startup. An actual computer reboot
+was not performed. Boot availability remains dependent on network access, valid
+Tailscale authorization, and the checkout staying at its configured location.
+
 ## Ammo, wishlist and price-check update
 
 - Node: 8 tests (crypto + caliber catalog). New coverage: every catalog label maps

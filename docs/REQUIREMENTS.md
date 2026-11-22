@@ -55,8 +55,9 @@ implemented inventory; they do not satisfy the unimplemented requirements.
 Encryption protects saved vault contents while locked. It does not protect an
 unlocked screen or compromised browser/operating system. Receipt downloads are
 decrypted copies. There is no passphrase recovery and no independent security
-audit. EdgeXpert and the application must remain running; automatic startup after
-reboot is not configured. See [README](../README.md) for operation and security
+audit. EdgeXpert must remain powered on. Automatic startup after reboot is now
+configured through current-user services; reauthorization may still be needed
+if the app's Tailscale identity expires. See [README](../README.md) for operation and security
 details and [validation](VALIDATION.md) for actual test coverage.
 
 ## Source and history

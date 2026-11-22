@@ -69,9 +69,35 @@ not be exposed through another proxy that forwards untrusted identity headers.
 App identity state and private daemon logs are outside the repository under
 `~/.local/state/private-inventory-tailnet` (or `$XDG_STATE_HOME`). They must never
 be copied into GitHub or AI prompts. The app uses the installed `tailscale` and
-`tailscaled` binaries. No automatic boot service is installed. After a host
-restart, run `python3 tailnet.py daemon`, then `python3 tailnet.py run`; Serve's
-saved private routes resume with the app identity.
+`tailscaled` binaries. Automatic startup is configured on EdgeXpert using the
+current user's `private-inventory-tailnet.service` and `private-inventory.service`.
+User lingering was already enabled, allowing these services to start at boot
+without an interactive login. The app waits for its authorized Tailscale identity,
+and saved private routes resume without another sign-in unless authorization expires.
+
+To install the same startup definitions on this checkout after initial authorization:
+
+```sh
+python3 deploy/install-user-services.py
+systemctl --user start private-inventory.service
+```
+
+Stop any manually started app and its app-specific Tailscale daemon before the
+first managed start to avoid duplicate listeners. The installer refuses to replace
+different existing unit files. It does not change the host's main Tailscale service
+or automatically enable user lingering on other computers.
+
+Check or restart the managed application:
+
+```sh
+systemctl --user status private-inventory.service private-inventory-tailnet.service
+systemctl --user restart private-inventory-tailnet.service private-inventory.service
+```
+
+For troubleshooting, use `journalctl --user -u private-inventory.service` and
+`journalctl --user -u private-inventory-tailnet.service`. Keep these logs private.
+For manual operation without installed units, run `python3 tailnet.py daemon`,
+then `python3 tailnet.py run`.
 
 The separate HTTP redirect listener binds only to loopback port 8767 and serves
 no records; Tailscale maps the app identity's HTTP port 80 to it. HTTPS maps to
